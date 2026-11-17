@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>next// a genz next-word predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #eceae4;
+  --card: #fbfaf7;
+  --line: #d8d5cc;
+  --text: #232220;
+  --muted: #8a8778;
+  --accent: #232220;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.scene {
+  width: 100%;
+  max-width: 640px;
+}
+
+.topbar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 32px;
+}
+
+.wordmark {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.stage {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 32px 28px;
+}
+
+.eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  text-transform: lowercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+  letter-spacing: 0.04em;
+}
+
+.model-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.model-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: lowercase;
+}
+
+#modelSelect {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.input-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 14px;
+  margin-bottom: 24px;
+  transition: border-color 0.2s ease;
+}
+.input-row:focus-within {
+  border-bottom-color: var(--accent);
+}
+
+#textInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 22px;
+  font-weight: 500;
+  caret-color: var(--accent);
+}
+#textInput::placeholder {
+  color: var(--muted);
+}
+
+.suggestions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  min-height: 108px;
+}
+
+.chip {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px 12px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+  font-family: 'Space Grotesk', sans-serif;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.chip:hover {
+  border-color: var(--accent);
+  background: var(--card);
+}
+.chip:active {
+  background: var(--bg);
+}
+
+.chip .rank {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.chip .word {
+  font-size: 17px;
+  font-weight: 700;
+  display: block;
+}
+
+.chip .fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+.chip .pct {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.placeholder-msg {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  padding: 20px 4px;
+}
+
+.hint {
+  margin: 20px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+@media (max-width: 480px) {
+  .suggestions { grid-template-columns: 1fr; }
+  #textInput { font-size: 18px; }
+}
+</style>
+</head>
+<body>
+
+<div class="scene">
+  <header class="topbar">
+    <span class="wordmark">next genz text predictor</span>
+    <span class="tag">trigram predictor · trained on genz/genalpha corpus</span>
+  </header>
+
+  <main class="stage">
+    <p class="eyebrow">type a few words, ngl</p>
+
+    <div class="model-row">
+      <label for="modelSelect" class="model-label">model</label>
+      <select id="modelSelect" class="model-select">
+        <option value="rnn">RNN</option>
+        <option value="lstm" selected>LSTM</option>
+        <option value="gru">GRU</option>
+        <option value="bidirectional">Bidirectional</option>
+      </select>
+    </div>
+
+    <div class="input-row">
+      <input
+        id="textInput"
+        type="text"
+        placeholder="i'm not..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <div class="caret"></div>
+    </div>
+
+    <div id="suggestions" class="suggestions">
+      <!-- chips injected by script below -->
+    </div>
+
+  </main>
+</div>
+
+<script>
+// Calls the server-side prediction API (see serve.py) with whichever
+// model the dropdown has selected, and renders ranked suggestion chips.
+
+const API_URL = "http://localhost:5000/predict";
+
+const textInput = document.getElementById("textInput");
+const modelSelect = document.getElementById("modelSelect");
+const suggestionsBox = document.getElementById("suggestions");
+
+let debounceTimer = null;
+
+function renderPlaceholder(msg) {
+  suggestionsBox.innerHTML = `<div class="placeholder-msg">${msg}</div>`;
+}
+
+function renderPredictions(predictions) {
+  if (!predictions.length) {
+    renderPlaceholder("no predictions yet — keep typing");
+    return;
+  }
+
+  suggestionsBox.innerHTML = predictions
+    .map(
+      (p, i) => `
+      <button class="chip" type="button" data-word="${p.word}">
+        <span class="rank">#${i + 1}</span>
+        <span class="word">${p.word}</span>
+        <span class="pct">${p.confidence_pct}%</span>
+        <span class="fill" style="width:${p.confidence_pct}%"></span>
+      </button>
+    `
+    )
+    .join("");
+
+  suggestionsBox.querySelectorAll(".chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const word = chip.getAttribute("data-word");
+      appendWord(word);
+      fetchPredictions();
+    });
+  });
+}
+
+function appendWord(word) {
+  const needsSpace = textInput.value.length > 0 && !textInput.value.endsWith(" ");
+  textInput.value += (needsSpace ? " " : "") + word + " ";
+  textInput.focus();
+}
+
+async function fetchPredictions() {
+  const text = textInput.value.trim();
+
+  if (!text) {
+    renderPlaceholder("start typing to see predictions");
+    return;
+  }
+
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        model: modelSelect.value,
+        top_k: 5,
+      }),
+    });
+
+    if (!response.ok) throw new Error(`server returned ${response.status}`);
+
+    const data = await response.json();
+    renderPredictions(data.predictions || data.suggestions || []);
+  } catch (err) {
+    console.error("prediction request failed:", err);
+    renderPlaceholder("prediction server not reachable");
+  }
+}
+
+textInput.addEventListener("input", () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(fetchPredictions, 200);
+});
+
+modelSelect.addEventListener("change", fetchPredictions);
+
+// initial state
+renderPlaceholder("start typing to see predictions");
+</script>
+</body>
+</html>
